@@ -103,54 +103,6 @@ where `rl`, `rn`, `rg` are independent random coefficients sampled per update.
 6. Update particle positions from the new velocities and enforce boundary constraints.
 7. Repeat until the termination criterion is met (for example, a maximum number of iterations).
 
-## Usage example
-
-```python
-import numpy as np
-from pso_implementation import ParticleSwarmOptimizer
-
-# Define a simple fitness function (sphere, negative for maximization)
-def sphere_function(particle):
-    return -np.sum(particle.candidate ** 2)
-
-pso = ParticleSwarmOptimizer(
-    fitness_func=sphere_function,
-    pop_size=30,
-    n_neighbors=5,
-    size=5,
-    lower=np.full(5, -5.0),
-    upper=np.full(5, 5.0)
-)
-
-best_particle = pso.fit(n_iters=100)
-
-print('Best solution found:', best_particle.candidate)
-print('Best fitness value:', pso.global_fitness_best)
-```
-
-## Testing
-
-A simple two-dimensional test function can be used to verify behavior:
-
-```python
-# Simple 2D test
-def simple_2d_function(particle):
-    x, y = particle.candidate[0], particle.candidate[1]
-    return -(x ** 2 + y ** 2)
-
-pso_2d = ParticleSwarmOptimizer(
-    fitness_func=simple_2d_function,
-    pop_size=20,
-    n_neighbors=4,
-    size=2,
-    lower=np.array([-3.0, -3.0]),
-    upper=np.array([3.0, 3.0])
-)
-
-best_2d = pso_2d.fit(n_iters=50)
-print(f"2D solution: ({best_2d.candidate[0]:.6f}, {best_2d.candidate[1]:.6f})")
-```
-
 ## Configuration and tuning
 
 * **Population size**: typical values are 20–50.
@@ -169,7 +121,3 @@ Tuning these parameters affects convergence speed and solution quality.
 ## License
 
 This implementation is provided for research and educational purposes. For reuse in other projects, please comply with the licensing terms of `softpy` and include an appropriate license header in source files.
-
----
-
-If additional adjustments are required (for example: alternative velocity formulas, concurrency support, or metric/logging integrations), specify the desired changes and an updated version can be prepared.
