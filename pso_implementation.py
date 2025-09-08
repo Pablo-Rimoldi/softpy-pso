@@ -166,7 +166,7 @@ class ParticleSwarmOptimizer(MetaHeuristicsAlgorithm):
             if param not in kwargs:
                 raise ValueError(f"Missing required parameter: {param}")
 
-    def fit(self, n_iters: int):
+    def fit(self, n_iters: int = 10):
         """
         Run the PSO optimization for specified number of iterations.
 
