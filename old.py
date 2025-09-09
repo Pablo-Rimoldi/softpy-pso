@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Callable, List, Optional
+from typing import Callable, List
 from softpy import FloatVectorCandidate
 from softpy.evolutionary.singlestate import MetaHeuristicsAlgorithm
 
@@ -32,19 +32,22 @@ class ParticleCandidate(FloatVectorCandidate):
         super().__init__(size, candidate, None, lower, upper)
 
         self.size = size
-        self.lower = lower.astype(float)  # Ensure float type
-        self.upper = upper.astype(float)  # Ensure float type
-        self.candidate = candidate.astype(float)  # Ensure float type
-        self.velocity = velocity.astype(float)  # Ensure float type
+        self.lower = lower
+        self.upper = upper
+        self.candidate = candidate
+        self.velocity = velocity
 
         # PSO parameters with constraint wl + wn + wg = 1
-        self.inertia = 0.7  # Standard inertia weight
-        self.wl = 0.4  # local best weight (cognitive component)
-        self.wn = 0.3  # neighborhood best weight (social component - neighbors)
-        self.wg = 0.3  # global best weight (social component - global)
+        self.inertia = 0.7
+        self.wl = 0.2  # local best weight
+        self.wn = 0.3  # neighborhood best weight
+        self.wg = 0.5  # global best weight
 
-        # Verify constraint wl + wn + wg = 1
-        assert abs(self.wl + self.wn + self.wg - 1.0) < 1e-10, "Weights must sum to 1"
+        # Ensure weights sum to 1
+        total_weight = self.wl + self.wn + self.wg
+        self.wl /= total_weight
+        self.wn /= total_weight
+        self.wg /= total_weight
 
     @classmethod
     def generate(cls, size: int, lower: np.ndarray, upper: np.ndarray):
@@ -65,40 +68,36 @@ class ParticleCandidate(FloatVectorCandidate):
         ParticleCandidate
             New particle with random position and velocity
         """
-        # Ensure arrays are numpy arrays of correct type
-        lower = np.asarray(lower, dtype=float)
-        upper = np.asarray(upper, dtype=float)
-        
         # Generate random position between lower and upper bounds
-        candidate = np.random.uniform(lower, upper, size).astype(float)
+        candidate = np.random.uniform(lower, upper, size)
 
         # Generate random velocity between -|upper - lower| and |upper - lower|
         velocity_range = np.abs(upper - lower)
-        velocity = np.random.uniform(-velocity_range, velocity_range, size).astype(float)
+        velocity = np.random.uniform(-velocity_range, velocity_range, size)
 
         return cls(size, lower, upper, candidate, velocity)
 
     def mutate(self):
         """
         Update particle position based on current velocity.
-        Note: This method modifies the particle in-place as per PSO algorithm.
+
+        Returns:
+        --------
+        ParticleCandidate
+            New particle with updated position
         """
-        # Update position: candidate = candidate + velocity
-        self.candidate = self.candidate + self.velocity
-        
-        # Ensure position stays within bounds (boundary handling)
-        self.candidate = np.clip(self.candidate, self.lower, self.upper)
-        
-        # Optional: Velocity clamping to prevent explosion
-        velocity_max = 0.5 * np.abs(self.upper - self.lower)
-        self.velocity = np.clip(self.velocity, -velocity_max, velocity_max)
+        new_candidate = self.candidate + self.velocity
+
+        # Ensure position stays within bounds
+        new_candidate = np.clip(new_candidate, self.lower, self.upper)
+
+        return ParticleCandidate(self.size, self.lower, self.upper, new_candidate, self.velocity)
 
     def recombine(self, local_best: 'ParticleCandidate',
                   neighborhood_best: 'ParticleCandidate',
                   global_best: 'ParticleCandidate'):
         """
         Update particle velocity using PSO velocity update formula.
-        Note: This method modifies the velocity in-place.
 
         Parameters:
         -----------
@@ -108,18 +107,24 @@ class ParticleCandidate(FloatVectorCandidate):
             Best position found by neighbors
         global_best : ParticleCandidate
             Best position found by any particle
+
+        Returns:
+        --------
+        ParticleCandidate
+            New particle with updated velocity
         """
-        # Generate random coefficients for each dimension
-        rl = np.random.uniform(0, 1, self.size)
-        rn = np.random.uniform(0, 1, self.size)
-        rg = np.random.uniform(0, 1, self.size)
+        # Generate random coefficients
+        rl = np.random.uniform(0, 1)
+        rn = np.random.uniform(0, 1)
+        rg = np.random.uniform(0, 1)
 
         # Update velocity using PSO formula
-        # Note: Using element-wise multiplication for random coefficients
-        self.velocity = (self.inertia * self.velocity +
+        new_velocity = (self.inertia * self.velocity +
                         rl * self.wl * (local_best.candidate - self.candidate) +
                         rn * self.wn * (neighborhood_best.candidate - self.candidate) +
                         rg * self.wg * (global_best.candidate - self.candidate))
+
+        return ParticleCandidate(self.size, self.lower, self.upper, self.candidate, new_velocity)
 
 
 class ParticleSwarmOptimizer(MetaHeuristicsAlgorithm):
@@ -152,11 +157,11 @@ class ParticleSwarmOptimizer(MetaHeuristicsAlgorithm):
         self.kwargs = kwargs
 
         # Initialize population and tracking arrays
-        self.population = []  # List of ParticleCandidate instances
-        self.best = []  # Array of best positions for each particle
-        self.fitness_best = np.full(pop_size, -np.inf, dtype=float)  # Best fitness values
-        self.global_best = None  # Global best ParticleCandidate
-        self.global_fitness_best = -np.inf  # Global best fitness value
+        self.population = []
+        self.best = []
+        self.fitness_best = np.full(pop_size, -np.inf)
+        self.global_best = None
+        self.global_fitness_best = -np.inf
 
         # Validate required kwargs
         required_params = ['size', 'lower', 'upper']
@@ -164,7 +169,7 @@ class ParticleSwarmOptimizer(MetaHeuristicsAlgorithm):
             if param not in kwargs:
                 raise ValueError(f"Missing required parameter: {param}")
 
-    def fit(self, n_iters: int):
+    def fit(self, n_iters: int = 10):
         """
         Run the PSO optimization for specified number of iterations.
 
@@ -180,109 +185,61 @@ class ParticleSwarmOptimizer(MetaHeuristicsAlgorithm):
         """
         # Step 1: Create initial population
         self.population = [ParticleCandidate.generate(**self.kwargs)
-                          for _ in range(self.pop_size)]
+                           for _ in range(self.pop_size)]
 
-        # Initialize best array with deep copies of current population
-        self.best = [ParticleCandidate(p.size, p.lower, p.upper, 
-                                       p.candidate.copy(), p.velocity.copy()) 
-                    for p in self.population]
+        # Initialize best array with current population
+        self.best = [particle for particle in self.population]
 
         # Main optimization loop
         for iteration in range(n_iters):
             # Step 2a: Compute fitness for each particle
-            fitness_values = np.array([self.fitness_func(particle) 
-                                       for particle in self.population])
+            fitness_values = [self.fitness_func(
+                particle) for particle in self.population]
 
             # Step 2b: Update best positions and global best
             for i, (particle, fitness) in enumerate(zip(self.population, fitness_values)):
-                # Update personal best
                 if fitness > self.fitness_best[i]:
                     self.fitness_best[i] = fitness
-                    # Create a copy for the best position
-                    self.best[i] = ParticleCandidate(
-                        particle.size, particle.lower, particle.upper,
-                        particle.candidate.copy(), particle.velocity.copy()
-                    )
+                    self.best[i] = particle
 
                 # Update global best
                 if fitness > self.global_fitness_best:
                     self.global_fitness_best = fitness
-                    # Create a copy for the global best
-                    self.global_best = ParticleCandidate(
-                        particle.size, particle.lower, particle.upper,
-                        particle.candidate.copy(), particle.velocity.copy()
-                    )
+                    self.global_best = particle
 
             # Step 2c: Select neighbors and find best neighbor for each particle
             best_neighbors = []
             for i in range(self.pop_size):
-                # Randomly select n_neighbors other particles (excluding self)
+                # Randomly select n_neighbors other particles
                 other_indices = [j for j in range(self.pop_size) if j != i]
-                
                 if len(other_indices) > 0:
-                    # Select min(n_neighbors, available) neighbors
-                    num_neighbors_to_select = min(self.n_neighbors, len(other_indices))
                     neighbor_indices = np.random.choice(other_indices,
-                                                       size=num_neighbors_to_select,
-                                                       replace=False)
+                                                        size=min(self.n_neighbors, len(
+                                                            other_indices)),
+                                                        replace=False)
 
-                    # Find the neighbor with the best fitness
-                    best_neighbor_idx = neighbor_indices[
-                        np.argmax([self.fitness_best[idx] for idx in neighbor_indices])
-                    ]
+                    # Find best neighbor
+                    best_neighbor_idx = max(neighbor_indices,
+                                            key=lambda idx: self.fitness_best[idx])
                     best_neighbors.append(self.best[best_neighbor_idx])
                 else:
-                    # Edge case: if no other particles exist, use global best
-                    best_neighbors.append(self.global_best if self.global_best else self.best[i])
+                    # If no neighbors, use global best
+                    best_neighbors.append(self.global_best)
 
-            # Step 2d: Update velocities and positions for each particle
+            # Step 2d: Update velocities and positions
+            new_population = []
             for i, particle in enumerate(self.population):
-                # Recombine to update velocity (modifies in-place)
-                particle.recombine(
+                # Recombine to update velocity
+                updated_particle = particle.recombine(
                     self.best[i],
                     best_neighbors[i],
                     self.global_best
                 )
-                
-                # Mutate to update position (modifies in-place)
-                particle.mutate()
+
+                # Mutate to update position
+                final_particle = updated_particle.mutate()
+                new_population.append(final_particle)
+
+            self.population = new_population
 
         return self.global_best
-
-
-# Optional: simple test
-def test_pso():
-    """
-    Simple test function to verify PSO implementation.
-    """
-
-    def sphere_function(particle):
-        """Sphere function: f(x) = sum(x^2)"""
-        return -np.sum(particle.candidate ** 2)  # Negative because PSO maximizes
-    
-    # Test parameters
-    dim = 5
-    lower_bounds = np.full(dim, -10.0)
-    upper_bounds = np.full(dim, 10.0)
-    
-    # Optimizer
-    optimizer = ParticleSwarmOptimizer(
-        fitness_func=sphere_function,
-        pop_size=30,
-        n_neighbors=5,
-        size=dim,
-        lower=lower_bounds,
-        upper=upper_bounds
-    )
-    
-    best_particle = optimizer.fit(n_iters=100)
-    
-    print(f"Best position found: {best_particle.candidate}")
-    print(f"Best fitness: {sphere_function(best_particle)}")
-    print(f"Distance from optimum: {np.linalg.norm(best_particle.candidate)}")
-    
-    return best_particle
-
-
-if __name__ == "__main__":
-    test_pso()

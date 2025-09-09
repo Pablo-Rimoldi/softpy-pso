@@ -1,5 +1,5 @@
+from pso_implementation import ParticleSwarmOptimizer
 import numpy as np
-from pso_implementation import *
 
 # Definiamo la funzione di fitness (massimizzazione)
 def sphere_fitness(particle):
