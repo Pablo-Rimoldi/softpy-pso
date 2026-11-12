@@ -6,7 +6,7 @@ Minimal implementation of **Particle Swarm Optimization (PSO)** designed to inte
 
 ## Description
 
-This project contains a compact PSO implementation (classes `ParticleCandidate` and `ParticleSwarmOptimizer`) intended to be easily tested and adapted. A practical example is provided in the `test_pso.py` file included in the repository.
+This project contains a compact PSO implementation (classes `ParticleCandidate` and `ParticleSwarmOptimizer`) intended to be easily tested and adapted.
 
 ---
 
@@ -26,7 +26,6 @@ This project contains a compact PSO implementation (classes `ParticleCandidate` 
 ```
 softpy-pso/
 ├── pso_implementation.py  
-├── test_pso.py            
 ├── requirements.txt        
 └── README.md               
 ```
@@ -46,7 +45,7 @@ softpy-pso/
 Clone the repository and install dependencies:
 
 ```bash
-git clone https://github.com/<your-username>/softpy-pso.git
+git clone https://github.com/Pablo-Rimoldi/softpy-pso.git
 cd softpy-pso
 pip install -r requirements.txt
 ```
@@ -62,18 +61,12 @@ pip install -r requirements.txt
 
 ---
 
-## Testing
-
-* The script `test_pso.py` is the starting point to quickly test behavior.
-
----
-
 ## Contributing
 
 PRs and issues are welcome. For changes:
 
 1. Open an issue to discuss major features.
-2. Create a branch and add tests.
+2. Create a branch.
 3. Submit a PR describing the changes.
 
 ---
